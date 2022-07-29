@@ -2,18 +2,23 @@ import csv
 import datetime
 import os
 import subprocess
-from collections import Counter
 
 from rich import print
 from tqdm import tqdm
 
 
 def get_file_length(path):
+    """
+    Gets length in lines for input files. Used to display progress bar.
+    """
     length = int(subprocess.check_output(f"wc -l {path}".split()).split()[0].decode())
     return length
 
 
 def fix_which_test(row):
+    """
+    Recodes medical test responses.
+    """
     tested_last30_bool = row["tested_for_covid19_last30d"] == "1"
     sought_testing_bool = row["seen_health_professional_sought_testing"] == "1"
     test_condition_bool = tested_last30_bool or sought_testing_bool
@@ -27,6 +32,9 @@ def fix_which_test(row):
 
 
 def fix_symptom(row):
+    """
+    Recodes symptom responses.
+    """
     sick = row["how_are_you_feeling"] == "2"
     if not sick:
         return row
@@ -38,6 +46,9 @@ def fix_symptom(row):
 
 
 def get_fields(full_data, adhoc_files, weights_column):
+    """
+    Retrieve total set of column names across all files.
+    """
     fields = []
     with open(full_data) as f:
         data_reader = csv.DictReader(f)
@@ -53,12 +64,34 @@ def get_fields(full_data, adhoc_files, weights_column):
                     fields.append(field.lower())
     if weights_column not in fields:
         fields.append(weights_column)
-    fields = [field for field in fields if field not in ['q73', 'q74']]
+    # remove columns that we have been informed are duplicates
+    # this will skip them for the final output file
+    fields = [field for field in fields if field not in ["q73", "q74"]]
     print(sorted(fields))
     return fields
 
 
 def combine_data(full_data, full_weights, adhoc_files, outfile):
+    """
+    Main function for combining data.
+
+    Given paths to the full set of data from before manual deliveries,
+    the full weights file from before manual deliveries, a list of
+    paths to all of the weekly manual deliveries, and a name for
+    the desired output file, generates a combined file incorporating
+    cleaning as needed.
+
+    Parameters
+    __________
+    full_data : str
+        Path to full data file prior to manual deliveries
+    full_weights : str
+        Path to file containing weights corresponding to full_data
+    adhoc_files : list of str
+        Paths to manually delivered files containing both data and weights
+    outfile : str
+        Path to newly generated combined data file.
+    """
     weights_column = "weight_daily_national_13plus"
     fields = get_fields(full_data, adhoc_files, weights_column)
     full_data_rows = get_file_length(full_data) - 1
@@ -104,6 +137,9 @@ def combine_data(full_data, full_weights, adhoc_files, outfile):
 
 
 def get_adhoc_files():
+    """
+    Retrieve names for all manually pulled momentive data files in the data directory.
+    """
     prefix = "../data/"
     data_files = os.listdir(prefix)
     files = sorted([prefix + x for x in data_files if x.endswith("onm-adhoc.csv")])
